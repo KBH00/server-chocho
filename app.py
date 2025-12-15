@@ -33,8 +33,9 @@ def vision_ocr_word_score(image_bytes: bytes) -> str:
             {
                 "role": "system",
                 "content": (
-                    "You are an OCR engine for handwriting evaluation. "
-                    "You must extract visible text only."
+                    "You are a handwriting evaluation engine. "
+                    "Evaluate the overall quality of the handwriting in the image. "
+                    "Do not guess unseen content."
                 )
             },
             {
@@ -43,15 +44,25 @@ def vision_ocr_word_score(image_bytes: bytes) -> str:
                     {
                         "type": "text",
                         "text": (
-                            "이 이미지에 보이는 글씨를 OCR 하세요.\n"
-                            "문장을 단어 단위로 분리하세요.\n"
-                            "각 단어 글씨의 평가 점수를 0~1 사이 score로 추정하세요.\n"
-                            "반드시 JSON 배열만 출력하세요.\n\n"
-                            "출력 형식:\n"
-                            "["
-                            "  { \"text\": \"단어\", \"score\": 0.XXX }"
-                            "]"
-                            "추측하지 말고, 보이는 글자만 사용하세요."
+                            "이 이미지는 손글씨 사진입니다.\n\n"
+                            "보이는 글씨 전체를 기준으로 handwriting 품질을 평가하세요.\n\n"
+                            "평가 기준:\n"
+                            "- 글자 형태의 안정성\n"
+                            "- 획의 일관성\n"
+                            "- 자간 및 균형\n"
+                            "- 가독성\n\n"
+                            "다음 3개 중 하나로만 grade를 선택하세요:\n"
+                            "- Excellent\n"
+                            "- Good\n"
+                            "- Poor\n\n"
+                            "그리고 글씨체를 개선하기 위한 짧고 구체적인 feedback을 작성하세요.\n\n"
+                            "반드시 아래 JSON 형식만 출력하세요.\n"
+                            "다른 설명은 절대 포함하지 마세요.\n\n"
+                            "출력 형식: "
+                            "{"
+                            "  \"grade\": \"Excellent | Good | Poor\","
+                            "  \"feedback\": \"string\""
+                            "}"
                         )
                     },
                     {
