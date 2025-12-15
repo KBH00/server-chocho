@@ -3,6 +3,7 @@ from openai import OpenAI
 import base64
 import os
 import uvicorn
+import json
 
 # =========================
 # App
@@ -119,14 +120,27 @@ async def root():
 @app.post("/ocr")
 async def ocr_endpoint(file: UploadFile = File(...)):
     image_bytes = await file.read()
-    result = vision_ocr_word_score(image_bytes)
-    return { "result": result }
+
+    # OpenAI가 반환한 JSON "문자열"
+    result_str = vision_ocr_word_score(image_bytes)
+    result_json = json.loads(result_str)
+
+    return {
+        "result": result_json
+    }
+
 
 @app.post("/scan")
 async def scan_endpoint(file: UploadFile = File(...)):
     image_bytes = await file.read()
-    result = vision_scan_best_object(image_bytes)
-    return { "result": result }
+
+    # OpenAI가 반환한 JSON "문자열"
+    result_str = vision_scan_best_object(image_bytes)
+    result_json = json.loads(result_str)
+
+    return {
+        "result": result_json
+    }
 
 # =========================
 # Entry
