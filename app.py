@@ -1,78 +1,18 @@
 from fastapi import FastAPI, File, UploadFile
-from paddleocr import PaddleOCR
-from PIL import Image
-import io
-import uvicorn
-import os
-import numpy as np
-import base64
-
 from openai import OpenAI
+import base64
+import os
+import uvicorn
 
 # =========================
-# FastAPI App
+# App
 # =========================
 app = FastAPI()
-
-# =========================
-# PaddleOCR 초기화
-# =========================
-ocr = PaddleOCR(
-    lang="korean",
-    det_db_thresh=0.2,
-    det_db_box_thresh=0.4,
-    use_angle_cls=True
-)
 
 # =========================
 # OpenAI Client
 # =========================
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-# =========================
-# Root
-# =========================
-@app.get("/")
-async def root():
-    return {"message": "OCR & Image2Text Server is running"}
-
-# =========================
-# OCR Logic
-# =========================
-def perform_ocr(image: Image.Image) -> str:
-    print(f"이미지 크기: {image.size} 처리 중...")
-    image_np = np.array(image)
-
-    result = ocr.ocr(image_np)
-
-    if not result or len(result) == 0:
-        return "텍스트를 찾을 수 없습니다."
-
-    data = result[0]
-    texts = data["rec_texts"]
-    scores = data["rec_scores"]
-
-    result_texts = []
-    for text, score in zip(texts, scores):
-        result_texts.append(f"{text} (confidence: {score:.2f})")
-        print(f"{text} (confidence: {score:.2f})")
-
-    return "\n".join(result_texts) if result_texts else "텍스트를 찾을 수 없습니다."
-
-# =========================
-# OCR Endpoint
-# =========================
-@app.post("/ocr")
-async def ocr_endpoint(file: UploadFile = File(...)):
-    image_bytes = await file.read()
-    image = Image.open(io.BytesIO(image_bytes))
-
-    if image.mode != "RGB":
-        image = image.convert("RGB")
-
-    result_text = perform_ocr(image)
-
-    return {"text": result_text}
 
 # =========================
 # Utils
@@ -81,9 +21,56 @@ def encode_image_bytes(image_bytes: bytes) -> str:
     return base64.b64encode(image_bytes).decode("utf-8")
 
 # =========================
-# Image2Text Logic
+# OCR (word-level scoring)
 # =========================
-def detect_best_object_from_image(image_bytes: bytes) -> str:
+def vision_ocr_word_score(image_bytes: bytes) -> str:
+    base64_image = encode_image_bytes(image_bytes)
+
+    response = client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are an OCR engine for handwriting evaluation. "
+                    "You must extract visible text only."
+                )
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "이 이미지에 보이는 글씨를 OCR 하세요.\n"
+                            "문장을 단어 단위로 분리하세요.\n"
+                            "각 단어마다 인식 신뢰도를 0~1 사이 score로 추정하세요.\n"
+                            "반드시 JSON 배열만 출력하세요.\n\n"
+                            "출력 형식:\n"
+                            "[\n"
+                            "  { \"text\": \"단어\", \"score\": 0.85 }\n"
+                            "]\n\n"
+                            "추측하지 말고, 보이는 글자만 사용하세요."
+                        )
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}"
+                        }
+                    }
+                ]
+            }
+        ],
+        temperature=0
+    )
+
+    return response.choices[0].message.content
+
+# =========================
+# Scan (object detection)
+# =========================
+def vision_scan_best_object(image_bytes: bytes) -> str:
     base64_image = encode_image_bytes(image_bytes)
 
     response = client.chat.completions.create(
@@ -99,8 +86,8 @@ def detect_best_object_from_image(image_bytes: bytes) -> str:
                     {
                         "type": "text",
                         "text": (
-                            "이 이미지에 보이는 객체 중 confidence가 가장 높은 객체만 추출해주세요. "
-                            "JSON 배열로만 출력해 주세요. "
+                            "이 이미지에 보이는 객체 중 confidence가 가장 높은 객체만 추출해주세요.\n"
+                            "JSON 배열로만 출력해 주세요.\n"
                             "객체는 name, category, confidence(0~1)를 포함하세요."
                         )
                     },
@@ -119,19 +106,26 @@ def detect_best_object_from_image(image_bytes: bytes) -> str:
     return response.choices[0].message.content
 
 # =========================
-# Image2Text Endpoint
+# Routes
 # =========================
-@app.post("/image2text")
-async def image2text_endpoint(file: UploadFile = File(...)):
+@app.get("/")
+async def root():
+    return {"message": "OpenAI Vision OCR & Scan Server running"}
+
+@app.post("/ocr")
+async def ocr_endpoint(file: UploadFile = File(...)):
     image_bytes = await file.read()
-    result = detect_best_object_from_image(image_bytes)
+    result = vision_ocr_word_score(image_bytes)
+    return { "result": result }
 
-    return {
-        "result": result
-    }
+@app.post("/scan")
+async def scan_endpoint(file: UploadFile = File(...)):
+    image_bytes = await file.read()
+    result = vision_scan_best_object(image_bytes)
+    return { "result": result }
 
 # =========================
-# Entry Point
+# Entry
 # =========================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
