@@ -44,7 +44,7 @@ def vision_ocr_word_score(image_bytes: bytes) -> str:
                         "text": (
                             "이 이미지에 보이는 글씨를 OCR 하세요.\n"
                             "문장을 단어 단위로 분리하세요.\n"
-                            "각 단어마다 인식 신뢰도를 0~1 사이 score로 추정하세요.\n"
+                            "각 단어 글씨의 평가 점수를 0~1 사이 score로 추정하세요.\n"
                             "반드시 JSON 배열만 출력하세요.\n\n"
                             "출력 형식:\n"
                             "[\n"
