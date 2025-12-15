@@ -47,9 +47,9 @@ def vision_ocr_word_score(image_bytes: bytes) -> str:
                             "각 단어 글씨의 평가 점수를 0~1 사이 score로 추정하세요.\n"
                             "반드시 JSON 배열만 출력하세요.\n\n"
                             "출력 형식:\n"
-                            "[\n"
-                            "  { \"text\": \"단어\", \"score\": 0.85 }\n"
-                            "]\n\n"
+                            "["
+                            "  { \"text\": \"단어\", \"score\": 0.XXX }"
+                            "]"
                             "추측하지 말고, 보이는 글자만 사용하세요."
                         )
                     },
@@ -88,7 +88,11 @@ def vision_scan_best_object(image_bytes: bytes) -> str:
                         "text": (
                             "이 이미지에 보이는 객체 중 confidence가 가장 높은 객체만 추출해주세요.\n"
                             "JSON 배열로만 출력해 주세요.\n"
-                            "객체는 name, category, confidence(0~1)를 포함하세요."
+                            "객체의 한글 이름, 영어 이름을 포함하세요.\n"
+                            "출력 형식:\n"
+                            "["
+                            "  { \"kor\": \"단어\", \"eng\": \"word\" }"
+                            "]"
                         )
                     },
                     {
